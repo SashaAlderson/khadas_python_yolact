@@ -53,7 +53,9 @@
 #define DEFAULT_REPEAT_COUNT 1
 #define DEFAULT_THREAD_COUNT 1
 #define VXDEVICE  "TIMVX"
-#define DEBUG 0
+#define DEBUG 1
+#define CORRECT_MASK 1 // move mask to right bottom corner
+#define OFFSET 6 // offset for mask
 
 const char* class_names[] = {"background",
                             "person", "bicycle", "car", "motorcycle", "airplane", "bus",
@@ -665,7 +667,7 @@ static int detect_yolact(const cv::Mat& bgr, std::vector<Object>& objects, const
 
             for (int y = 0; y < img_h; y++)
             {
-                if (y < obj.rect.y || y > obj.rect.y + obj.rect.height)
+                if (y < obj.rect.y - OFFSET || y > obj.rect.y - OFFSET + obj.rect.height)
                     continue;
 
                 const float* mp2 = mask2.ptr<const float>(y);
@@ -673,7 +675,7 @@ static int detect_yolact(const cv::Mat& bgr, std::vector<Object>& objects, const
 
                 for (int x = 0; x < img_w; x++)
                 {
-                    if (x < obj.rect.x || x > obj.rect.x + obj.rect.width)
+                    if (x < obj.rect.x - OFFSET || x > obj.rect.x - OFFSET + obj.rect.width)
                         continue;
 
                     bmp[x] = mp2[x] > 0.5f ? 255 : 0;
@@ -818,6 +820,7 @@ static void draw_objects(const cv::Mat& bgr, const std::vector<Object>& objects)
         for (int y = 0; y < image.rows; y++)
         {
             const uchar* mp = obj.mask.ptr(y);
+            if (CORRECT_MASK) mp -= OFFSET + image.cols*OFFSET; // move pointer to correct masks
             uchar* p = image.ptr(y);
             for (int x = 0; x < image.cols; x++)
             {
