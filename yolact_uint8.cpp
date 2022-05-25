@@ -53,6 +53,7 @@
 #define DEFAULT_REPEAT_COUNT 1
 #define DEFAULT_THREAD_COUNT 1
 #define VXDEVICE  "TIMVX"
+#define DEBUG 0
 
 const char* class_names[] = {"background",
                             "person", "bicycle", "car", "motorcycle", "airplane", "bus",
@@ -288,7 +289,7 @@ static void softmax(std::vector<float> &tensor){
             }
         }
         sum = 0;
-        if (maxind != 0){
+        if (maxind != 0 && DEBUG){
             std::cout << "maxcls: " << maxcls << ", detected: " << class_names[maxind] << ", i: " << i << std::endl;
         }
         maxcls = 0.1;
@@ -458,10 +459,12 @@ static int detect_yolact(const cv::Mat& bgr, std::vector<Object>& objects, const
     tensor_t coef_3  = get_graph_output_tensor(graph, 12, 0); // 1x96x9x9
     tensor_t coef_4  = get_graph_output_tensor(graph, 15, 0); // 1x96x5x5
     
-    int out_dim[4];
-    for (int i = 0; i < 16; i++){
-        get_tensor_shape( get_graph_output_tensor(graph, i, 0), out_dim, 4);
-        std::cout << "Shape of " << i << "'th tensor: " << out_dim[0] << " "<< out_dim[1] << " " << out_dim[2] << " "<< out_dim[3] << std::endl;
+    if (DEBUG){
+        int out_dim[4];
+        for (int i = 0; i < 16; i++){
+            get_tensor_shape( get_graph_output_tensor(graph, i, 0), out_dim, 4);
+            std::cout << "Shape of " << i << "'th tensor: " << out_dim[0] << " "<< out_dim[1] << " " << out_dim[2] << " "<< out_dim[3] << std::endl;
+        }
     }
     // std::vector<float> class_0_fp32 = summ_tensors(class_0, class_1, class_2, class_3, class_4);
     // std::vector<float> box_0_fp32 = summ_tensors(box_0, box_1, box_2, box_3, box_4);
