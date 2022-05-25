@@ -167,7 +167,7 @@ static std::vector<Box2f> generate_priorbox(int num_priores)
     const int conv_ws[5] = {68, 34, 17, 9, 5};
     const int conv_hs[5] = {68, 34, 17, 9, 5};
 
-    const float aspect_ratios[3] = {1.f, 0.5f, 2.f};
+    const float aspect_ratios[3] = {1.0f, 0.5f, 2.f};
     const float scales[5] = {24.f, 48.f, 96.f, 192.f, 384.f};
     //const float scales[5] = {32.f, 64.f, 128.f, 256.f, 512.f};
     int index = 0;
@@ -193,7 +193,7 @@ static std::vector<Box2f> generate_priorbox(int num_priores)
                     float w = scale * ar / TARGET_SIZE;
                     float h = scale / ar / TARGET_SIZE;
 
-                    h = w;
+                    // h = w;
 
                     Box2f& priorbox = priorboxs[index];
 
