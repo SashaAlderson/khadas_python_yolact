@@ -1,5 +1,5 @@
-TARGET_NAME = yolact
-OBJ_DIR = cv4_output
+TARGET_NAME = yolact.so
+OBJ_DIR = .
 #INSTALL_DIR :=
 
 
@@ -32,7 +32,7 @@ OBJECTS += $(OBJ_DIR)/yolact_uint8.o
 #############################################################################################################
 
 LDFLAGS += -Wall -shared -Wl,-soname,$(TARGET_NAME) -Wl,-z,defs
-
+CXX += -shared
 all: $(TARGET_OUTPUT)
 
 clean:

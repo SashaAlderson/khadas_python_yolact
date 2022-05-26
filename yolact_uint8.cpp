@@ -49,34 +49,19 @@
 #include "common.h"
 #include "tengine/c_api.h"
 #include "tengine_operations.h"
+#include "yolact_uint8.h"
+
 #define TARGET_SIZE 544
 #define DEFAULT_REPEAT_COUNT 1
 #define DEFAULT_THREAD_COUNT 1
 #define VXDEVICE  "TIMVX"
-#define DEBUG 1
+#define DEBUG 0
 #define CORRECT_MASK 1 // move mask to right bottom corner
 #define OFFSET 6 // offset for mask
 
-const char* class_names[] = {"background",
-                            "person", "bicycle", "car", "motorcycle", "airplane", "bus",
-                            "train", "truck", "boat", "traffic light", "fire hydrant",
-                            "stop sign", "parking meter", "bench", "bird", "cat", "dog",
-                            "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe",
-                            "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee",
-                            "skis", "snowboard", "sports ball", "kite", "baseball bat",
-                            "baseball glove", "skateboard", "surfboard", "tennis racket",
-                            "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl",
-                            "banana", "apple", "sandwich", "orange", "broccoli", "carrot",
-                            "hot dog", "pizza", "donut", "cake", "chair", "couch",
-                            "potted plant", "bed", "dining table", "toilet", "tv", "laptop",
-                            "mouse", "remote", "keyboard", "cell phone", "microwave", "oven",
-                            "toaster", "sink", "refrigerator", "book", "clock", "vase",
-                            "scissors", "teddy bear", "hair drier", "toothbrush"};
 const float mean_vals[3] = {123.68f, 116.78f, 103.94f};
 const float norm_vals[3] = {1.0 / 58.40f, 1.0 / 57.12f, 1.0 / 57.38f};
-//const float mean_vals[3] = {2.1179,2.0357,1.8114};
-// const float mean_vals[3] = {123.68f, 116.78f, 103.94f};
-// const float norm_vals[3] = {0.01712,0.017507,0.017428};
+
 struct Object
 {
     cv::Rect_<float> rect;
@@ -90,8 +75,6 @@ void get_input_data_cv_uint8(const cv::Mat& sample, uint8_t* input_data, int img
                        float input_scale, int zero_point)
 {
     cv::Mat img;
-    // img = sample;
-    // std::cout << " Leaving bgr image" << std::endl;
     if (sample.channels() == 4)
     {
         cv::cvtColor(sample, img, cv::COLOR_BGRA2RGB);
@@ -122,10 +105,8 @@ void get_input_data_cv_uint8(const cv::Mat& sample, uint8_t* input_data, int img
                 int in_index  = h * img_w * 3 + w * 3 + c;
                 int out_index = c * img_h * img_w + h * img_w + w;
                 float input_fp32 = (img_data[in_index] - mean[c]) * scale[c];
-                // std::cout << input_fp32 <<":";
                 /* quant to uint8 */
                 int udata = (round)(input_fp32 / input_scale + ( float )zero_point);
-                // std::cout << udata << " ";
                 if (udata > 255)
                     udata = 255;
                 else if (udata < 0)
@@ -135,23 +116,6 @@ void get_input_data_cv_uint8(const cv::Mat& sample, uint8_t* input_data, int img
             }
         }
     }
-    // for (int h = 0; h < img_h; h++)
-	// {
-	// 	for (int w = 0; w < img_w; w++)
-	// 	{
-	// 		for (int c = 0; c < 3; c++)
-	// 		{
-	// 			int udata = *img_data;
-	// 			if (udata > 255)
-	// 				udata = 255;
-	// 			else if (udata < 0)
-	// 				udata = 0;
-	// 			input_data[c * img_h * img_w + h * img_w + w] = udata; //- mean[c]) ;
-    //             //std::cout << input_data[c * img_h * img_w + h * img_w + w];
-	// 			img_data++;
-	// 		}
-	// 	}
-	// }
 }
 
 struct Box2f
@@ -275,6 +239,7 @@ static void concatenate(std::vector<float> &vector1, std::vector<float> &vector2
         std::make_move_iterator(vector2.begin()),
         std::make_move_iterator(vector2.end()));
 }
+
 static void softmax(std::vector<float> &tensor){
     double sum = 0;
     double maxcls = 0.1;
@@ -291,9 +256,6 @@ static void softmax(std::vector<float> &tensor){
             }
         }
         sum = 0;
-        if (maxind != 0 && DEBUG){
-            std::cout << "maxcls: " << maxcls << ", detected: " << class_names[maxind] << ", i: " << i << std::endl;
-        }
         maxcls = 0.1;
         maxind = 0;
     }
@@ -312,97 +274,48 @@ static std::vector<float> dequant_and_transform(tensor_t tensor){
     {
         data_fp32[c] = (( float )data_uint8[c] - ( float )output_zero_point) * output_scale; 
     }  
-
-    // {
-    //     data_fp32[c] = (( float )data_uint8[c % out_dim[1] * out_dim[2] * out_dim[3] + (c / out_dim[1])  ] - ( float )output_zero_point) * output_scale; // 243x68x68 -> 13872x81
-    // }                                     //c %  243        *  68         *  68      +     c /  243    
-
     return data_fp32; 
 }
 
-// static std::vector<float> summ_tensors(tensor_t tensor0, tensor_t tensor1, tensor_t tensor2, tensor_t tensor3, tensor_t tensor4){
-//     int out_dim[5][4];
-//     float output_scale[5] = { 0.f, 0.f, 0.f, 0.f, 0.f};
-//     int output_zero_point[5] = { 0, 0, 0, 0, 0};
-//     int counter[5];
-//     uint8_t* data_uint8[5];
-//     int size = 0;
-//     std::vector<tensor_t> tensors ={ tensor0, tensor1, tensor2, tensor3, tensor4};
-//     for (int i = 0; i < 5; i++){
-//         get_tensor_quant_param(tensors[i], &output_scale[i], &output_zero_point[i], 1);
-//         counter[i] = get_tensor_buffer_size(tensors[i]) / sizeof(uint8_t);
-//         data_uint8[i] = ( uint8_t* )get_tensor_buffer(tensors[i]);
-//         size += counter[i];
-//         get_tensor_shape( tensors[i], &out_dim[i][0], 4);
-//     }
-
-//     std::vector<float> data_fp32(size);
-    // for (int c = 0; c < size; c++){
-    //     for (int i= 0; i < 5; i++)
-    //     {
-    //         data_fp32[c + i * 243] = (( float )data_uint8[i][c % out_dim[i][1] * out_dim[i][2] * out_dim[i][3] + (c / out_dim[i][1])  ] - ( float )output_zero_point[i]) * output_scale[i]; // 243x68x68 -> 13872x81
-    //     }                                     //c %  243        *  68         *  68      +     c /  243    
-//     }
-//     return data_fp32; 
-// }
-
-static int detect_yolact(const cv::Mat& bgr, std::vector<Object>& objects, const char* model_file, int repeat_count,
-                         int num_thread)
-{
-    /* set runtime options */
-    struct options opt;
-    opt.num_thread = num_thread;
-    opt.cluster = TENGINE_CLUSTER_ALL;
-    opt.precision = TENGINE_MODE_UINT8;
-    opt.affinity = 0;
-
-    /* inital tengine */
-    if (init_tengine() != 0)
-    {
-        fprintf(stderr, "Initial tengine failed.\n");
-        return -1;
-    }
-    fprintf(stderr, "tengine-lite library version: %s\n", get_tengine_version());
-
-    const int target_size = TARGET_SIZE;
-
-    int img_w = bgr.cols;
-    int img_h = bgr.rows;
-
-
-    context_t timvx_context = create_context("timvx", 1);
-
-	int rtt = set_context_device(timvx_context, VXDEVICE, nullptr, 0);
-	if (0 > rtt)
-	{
-		fprintf(stderr, " add_context_device VSI DEVICE failed.\n");
-		exit(-1);
-	}
-    /* create graph, load tengine model xxx.tmfile */
-    graph_t graph = create_graph(timvx_context, "tengine", model_file);
-    if (NULL == graph)
-    {
-        fprintf(stderr, "Create graph failed.\n");
-        return -1;
-    }
-
-    /* set the input shape to initial the graph, and prerun graph to infer shape */
-    int img_size = target_size * target_size * 3;
-    int dims[] = {1, 3, target_size, target_size};    // nchw
-    std::vector<uint8_t> input_data(img_size);
+int set_graph(int img_h, int img_w, graph_t graph){
+        /* set the input shape to initial the graph, and prerun graph to infer shape */
+    
+    int dims[] = {1, 3, img_h, img_w};    // nchw
+     
 
     tensor_t input_tensor = get_graph_input_tensor(graph, 0, 0);
-    if (input_tensor == NULL)
-    {
+    if (input_tensor == nullptr) 
+	{
         fprintf(stderr, "Get input tensor failed\n");
         return -1;
     }
 
-    if (set_tensor_shape(input_tensor, dims, 4) < 0)
-    {
+    if (set_tensor_shape(input_tensor, dims, 4) < 0) 
+	{
         fprintf(stderr, "Set input tensor shape failed\n");
         return -1;
     }
+
+
+
+    /* prerun graph, set work options(num_thread, cluster, precision) */
+    if (prerun_graph(graph) < 0) 
+	{
+        fprintf(stderr, "Prerun multithread graph failed.\n");
+        return -1;
+    }
+}
+
+int detect_yolact_wrapper(const cv::Mat& bgr, std::vector<Object>& objects, graph_t graph, tensor_t input_tensor)
+{
+    int img_w = bgr.cols;
+    int img_h = bgr.rows;
+
+    // /* set the input shape to initial the graph, and prerun graph to infer shape */
+    const int target_size = TARGET_SIZE;
+    int img_size = target_size * target_size * 3;
+    int dims[] = {1, 3, target_size, target_size};    // nchw
+    std::vector<uint8_t> input_data(img_size);
 
     if (set_tensor_buffer(input_tensor, input_data.data(), img_size) < 0)
     {
@@ -410,40 +323,17 @@ static int detect_yolact(const cv::Mat& bgr, std::vector<Object>& objects, const
         return -1;
     }    
 
-    /* prerun graph, set work options(num_thread, cluster, precision) */
-    if (prerun_graph_multithread(graph, opt) < 0)
-    {
-        fprintf(stderr, "Prerun multithread graph failed.\n");
-        return -1;
-    }
 
     /* prepare process input data, set the data mem to input tensor */
     float input_scale = 0.f;
     int input_zero_point = 0;
-    get_tensor_quant_param(input_tensor, &input_scale, &input_zero_point, 1);    
+    get_tensor_quant_param(input_tensor, &input_scale, &input_zero_point, 1);   
     get_input_data_cv_uint8(bgr, input_data.data(), target_size, target_size, mean_vals, norm_vals, input_scale, input_zero_point);
-
-    /* run graph */
-    double min_time = DBL_MAX;
-    double max_time = DBL_MIN;
-    double total_time = 0.;
-    for (int i = 0; i < repeat_count; i++)
+    if (run_graph(graph, 1) < 0)
     {
-        double start = get_current_time();
-        if (run_graph(graph, 1) < 0)
-        {
-            fprintf(stderr, "Run graph failed\n");
-            return -1;
-        }
-        double end = get_current_time();
-        double cur = end - start;
-        total_time += cur;
-        min_time = std::min(min_time, cur);
-        max_time = std::max(max_time, cur);
+        fprintf(stderr, "Run graph failed\n");
+        return -1;
     }
-    fprintf(stderr, "Repeat %d times, thread %d, avg time %.2f ms, max_time %.2f ms, min_time %.2f ms\n", repeat_count,
-            num_thread, total_time / repeat_count, max_time, min_time);
-    fprintf(stderr, "--------------------------------------\n");
     tensor_t proto   = get_graph_output_tensor(graph, 0, 0); // 1x136x136x32
     tensor_t class_0 = get_graph_output_tensor(graph, 1, 0); // 1x243x68x68
     tensor_t class_1 = get_graph_output_tensor(graph, 4, 0); // 1x243x34x34
@@ -468,9 +358,6 @@ static int detect_yolact(const cv::Mat& bgr, std::vector<Object>& objects, const
             std::cout << "Shape of " << i << "'th tensor: " << out_dim[0] << " "<< out_dim[1] << " " << out_dim[2] << " "<< out_dim[3] << std::endl;
         }
     }
-    // std::vector<float> class_0_fp32 = summ_tensors(class_0, class_1, class_2, class_3, class_4);
-    // std::vector<float> box_0_fp32 = summ_tensors(box_0, box_1, box_2, box_3, box_4);
-    // std::vector<float> coef_0_fp32 = summ_tensors(coef_0, coef_1, coef_2, coef_3, coef_4);
     std::vector<float> class_0_fp32 = dequant_and_transform(class_0);
     std::vector<float> class_1_fp32 = dequant_and_transform(class_1);
     std::vector<float> class_2_fp32 = dequant_and_transform(class_2);
@@ -486,19 +373,7 @@ static int detect_yolact(const cv::Mat& bgr, std::vector<Object>& objects, const
     std::vector<float> coef_2_fp32  = dequant_and_transform(coef_2);
     std::vector<float> coef_3_fp32  = dequant_and_transform(coef_3);
     std::vector<float> coef_4_fp32  = dequant_and_transform(coef_4);
-    std::vector<float> proto_fp32   = dequant_and_transform(proto);
-    // float output_scale = 0.f;
-    // int output_zero_point = 0;
-    // get_tensor_quant_param(proto, &output_scale, &output_zero_point, 1);
-    // int counter = get_tensor_buffer_size(proto) / sizeof(uint8_t);
-    // uint8_t* data_uint8 = ( uint8_t* )get_tensor_buffer(proto);
-    // std::vector<float> proto_fp32(counter);
-    // get_tensor_shape( proto, out_dim, 4);
-    // for (int c = 0; c < counter; c++)
-    // {
-    //     proto_fp32[c] = (( float )data_uint8[c] - ( float )output_zero_point) * output_scale; 
-    // }                                     
-
+    std::vector<float> proto_fp32   = dequant_and_transform(proto);                                 
     concatenate(class_0_fp32, class_1_fp32);
     concatenate(class_0_fp32, class_2_fp32);
     concatenate(class_0_fp32, class_3_fp32);
@@ -516,62 +391,6 @@ static int detect_yolact(const cv::Mat& bgr, std::vector<Object>& objects, const
     std::vector<float> location   = box_0_fp32;
     std::vector<float> mask       = coef_0_fp32;
     std::vector<float> confidence = class_0_fp32;
-    /* dequant output data */
-    // tensor_t maskmaps_tensor   = get_graph_output_tensor(graph, 1, 0);
-    // tensor_t location_tensor   = get_graph_output_tensor(graph, 2, 0);
-    // tensor_t mask_tensor       = get_graph_output_tensor(graph, 3, 0);
-    // tensor_t confidence_tensor = get_graph_output_tensor(graph, 4, 0);
-
-    // float maskmaps_scale = 0.f;
-    // float location_scale = 0.f;
-    // float mask_scale     = 0.f;
-    // float confidence_scale = 0.f;
-
-    // int maskmaps_zero_point = 0;
-    // int location_zero_point = 0;
-    // int mask_zero_point     = 0;
-    // int confidence_zero_point = 0;
-    // // Поменять по аналогу с V5
-    // get_tensor_quant_param(maskmaps_tensor, &maskmaps_scale, &maskmaps_zero_point, 1);
-    // get_tensor_quant_param(location_tensor, &location_scale, &location_zero_point, 1);
-    // get_tensor_quant_param(mask_tensor, &mask_scale, &mask_zero_point, 1);
-    // get_tensor_quant_param(confidence_tensor, &confidence_scale, &confidence_zero_point, 1);
-
-    // int maskmaps_count   = get_tensor_buffer_size(maskmaps_tensor) / sizeof(uint8_t);
-    // int location_count   = get_tensor_buffer_size(location_tensor) / sizeof(uint8_t);
-    // int mask_count       = get_tensor_buffer_size(mask_tensor) / sizeof(uint8_t);
-    // int confidence_count = get_tensor_buffer_size(confidence_tensor) / sizeof(uint8_t);
-
-    // uint8_t* maskmaps_u8   = ( uint8_t* )get_tensor_buffer(maskmaps_tensor);
-    // uint8_t* location_u8   = ( uint8_t* )get_tensor_buffer(location_tensor);
-    // uint8_t* mask_u8       = ( uint8_t* )get_tensor_buffer(mask_tensor);
-    // uint8_t* confidence_u8 = ( uint8_t* )get_tensor_buffer(confidence_tensor);
-
-    // std::vector<float> maskmaps(maskmaps_count);
-    // std::vector<float> location(location_count);
-    // std::vector<float> mask(mask_count);
-    // std::vector<float> confidence(confidence_count);
-
-    // for (int c = 0; c < maskmaps_count; c++)
-    // {
-    //     maskmaps[c] = (( float )maskmaps_u8[c] - ( float )maskmaps_zero_point) * maskmaps_scale;
-    // }
-
-    // for (int c = 0; c < location_count; c++)
-    // {
-    //     location[c] = (( float )location_u8[c] - ( float )location_zero_point) * location_scale;
-    // }
-
-    // for (int c = 0; c < mask_count; c++)
-    // {
-    //     mask[c] = (( float )mask_u8[c] - ( float )mask_zero_point) * mask_scale;
-    // }
-
-    // for (int c = 0; c < confidence_count; c++)
-    // {
-    //     confidence[c] = (( float )confidence_u8[c] - ( float )confidence_zero_point) * confidence_scale;
-    // }    
-
     /* postprocess */
     int num_class = 81;
     int num_priors = 18525;
@@ -582,7 +401,6 @@ static int detect_yolact(const cv::Mat& bgr, std::vector<Object>& objects, const
 
     std::vector<std::vector<Object>> class_candidates;
     class_candidates.resize(num_class);
-
     for (int i = 0; i < num_priors; i++)
     {
         const float* conf = confidence.data() + i * 81;
@@ -683,17 +501,27 @@ static int detect_yolact(const cv::Mat& bgr, std::vector<Object>& objects, const
             }
         }
     }
-
-    /* release tengine */
-    postrun_graph(graph);
-    destroy_graph(graph);
-    release_tengine();
-
     return 0;
 }
 
-static void draw_objects(const cv::Mat& bgr, const std::vector<Object>& objects)
-{
+static void draw_objects(cv::Mat& bgr, const std::vector<Object>& objects)
+{   
+    const char* class_names[] = {"background",
+                            "person", "bicycle", "car", "motorcycle", "airplane", "bus",
+                            "train", "truck", "boat", "traffic light", "fire hydrant",
+                            "stop sign", "parking meter", "bench", "bird", "cat", "dog",
+                            "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe",
+                            "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee",
+                            "skis", "snowboard", "sports ball", "kite", "baseball bat",
+                            "baseball glove", "skateboard", "surfboard", "tennis racket",
+                            "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl",
+                            "banana", "apple", "sandwich", "orange", "broccoli", "carrot",
+                            "hot dog", "pizza", "donut", "cake", "chair", "couch",
+                            "potted plant", "bed", "dining table", "toilet", "tv", "laptop",
+                            "mouse", "remote", "keyboard", "cell phone", "microwave", "oven",
+                            "toaster", "sink", "refrigerator", "book", "clock", "vase",
+                            "scissors", "teddy bear", "hair drier", "toothbrush"};
+
     static const unsigned char colors[81][3] = {
         {56, 0, 255},
         {226, 255, 0},
@@ -778,7 +606,7 @@ static void draw_objects(const cv::Mat& bgr, const std::vector<Object>& objects)
         {245, 255, 0}
     };
 
-    cv::Mat image = bgr.clone();
+    cv::Mat &image = bgr;
 
     int color_index = 0;
 
@@ -834,75 +662,12 @@ static void draw_objects(const cv::Mat& bgr, const std::vector<Object>& objects)
             }
         }
     }
-
-    cv::imwrite("yolact_uint8_out.jpg", image);
 }
 
-void show_usage()
-{
-    fprintf(stderr, "[Usage]:  [-h]\n    [-m model_file] [-i image_file] [-r repeat_count] [-t thread_count]\n");
-}
-
-int main(int argc, char** argv)
-{
-    int repeat_count = DEFAULT_REPEAT_COUNT;
-    int num_thread = DEFAULT_THREAD_COUNT;
-    char* model_file = nullptr;
-    char* image_file = nullptr;
-
-    int res;
-    while ((res = getopt(argc, argv, "m:i:r:t:h:")) != -1)
-    {
-        switch (res)
-        {
-            case 'm':
-                model_file = optarg;
-                break;
-            case 'i':
-                image_file = optarg;
-                break;
-            case 'r':
-                repeat_count = std::strtoul(optarg, nullptr, 10);
-                break;
-            case 't':
-                num_thread = std::strtoul(optarg, nullptr, 10);
-                break;
-            case 'h':
-                show_usage();
-                return 0;
-            default:
-                break;
-        }
-    }
-
-    /* check files */
-    if (nullptr == model_file)
-    {
-        fprintf(stderr, "Error: Tengine model file not specified!\n");
-        show_usage();
-        return -1;
-    }
-
-    if (nullptr == image_file)
-    {
-        fprintf(stderr, "Error: Image file not specified!\n");
-        show_usage();
-        return -1;
-    }
-
-    // if (!check_file_exist(model_file) || !check_file_exist(image_file))
-    //     return -1;
-
-    cv::Mat m = cv::imread(image_file, 1);
-    if (m.empty())
-    {
-        fprintf(stderr, "cv::imread %s failed\n", image_file);
-        return -1;
-    }
-
+int inference( void* ptr, int height, int width, graph_t graph, tensor_t tensor){
+    // cv::Mat m = cv::imread(image_file, 1);
+    cv::Mat img = cv::Mat(height, width, CV_8UC3, (uchar*)ptr);
     std::vector<Object> objects;
-    detect_yolact(m, objects, model_file, repeat_count, num_thread);
-    draw_objects(m, objects);
-
-    return 0;
+    detect_yolact_wrapper(img, objects, graph, tensor);
+    draw_objects(img, objects);
 }
