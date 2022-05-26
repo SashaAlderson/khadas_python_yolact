@@ -1,11 +1,11 @@
 # khadas_python_yolact
 ## Getting started
-build library for yolact
+Build library for yolact
 ```
 chmod u+x build-cv4.sh
 ./build-cv4.sh
 ```
-You can download [model](https://drive.google.com/file/d/11depzZYc2pchDJYWFhc7yR4uaHUUSltZ/view?usp=sharing) and run yolact.py to inference on camera.
+Download [model](https://drive.google.com/file/d/11depzZYc2pchDJYWFhc7yR4uaHUUSltZ/view?usp=sharing) and run yolact.py to inference on camera.
 ```
 python3 yolact.py
 ```
