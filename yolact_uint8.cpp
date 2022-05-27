@@ -16,7 +16,7 @@
 #define DEFAULT_REPEAT_COUNT 1
 #define DEFAULT_THREAD_COUNT 1
 #define VXDEVICE  "TIMVX"
-#define DEBUG 1
+#define DEBUG 0
 #define CORRECT_MASK 1 // move mask to right bottom corner
 #define OFFSET 6 // offset for mask
 
@@ -575,8 +575,8 @@ static void draw_objects(cv::Mat& bgr, const std::vector<Object>& objects)
         if (obj.prob < 0.15)
             continue;
 
-        fprintf(stderr, "%d = %.5f at %.2f %.2f %.2f x %.2f\n", obj.label, obj.prob, obj.rect.x, obj.rect.y,
-                obj.rect.width, obj.rect.height);
+        // fprintf(stderr, "%d = %.5f at %.2f %.2f %.2f x %.2f\n", obj.label, obj.prob, obj.rect.x, obj.rect.y,
+        //         obj.rect.width, obj.rect.height);
 
         const unsigned char* color = colors[color_index % 81];
         color_index++;
