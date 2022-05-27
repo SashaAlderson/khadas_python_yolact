@@ -45,7 +45,6 @@ class Yolact(threading.Thread):
                
 if __name__ == "__main__":
     model = Yolact("yolact_50_KL_uint8.tmfile")
-    model.inference()
-    # model.start()
-    # while True:
-    #     pass
+    model.start()
+    while True:
+        pass
