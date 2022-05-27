@@ -20,7 +20,7 @@ class Yolact(threading.Thread):
         self.graph = libc.create_graph(self.context, "tengine".encode('utf-8'), model_file)
         libc.set_graph(384, 384, self.graph)
         self.input_tensor = libc.get_graph_input_tensor(self.graph, 0, 0)
-        self.cap = cv2.VideoCapture("test.mp4")
+        self.cap = cv2.VideoCapture(0)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         self.cap.set(cv2.CAP_PROP_FPS, 30)
@@ -30,15 +30,12 @@ class Yolact(threading.Thread):
         while True:      
             start = time.time() 
             ret, self.frame = self.cap.read()
-            # self.frame = cv2.imread("cv4_output/dog.jpg")
             height, width, _ = self.frame.shape
-            libc.inference(self.frame.ctypes.data , height, width, self.graph, self.input_tensor)    
-            # cv2.imwrite("test.jpg", self.frame)   
-            # return           
-            # cv2.imshow('frame', self.frame)
-            # key = cv2.waitKey(1)
-            # if (key == 27):
-            #     break
+            libc.inference(self.frame.ctypes.data , height, width, self.graph, self.input_tensor)           
+            cv2.imshow('frame', self.frame)
+            key = cv2.waitKey(1)
+            if (key == 27):
+                break
             self.last_frame = self.frame
             print("Fps: ", 1/(time.time() - start))
 

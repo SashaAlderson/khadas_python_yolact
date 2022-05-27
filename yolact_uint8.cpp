@@ -18,7 +18,7 @@
 #define VXDEVICE  "TIMVX"
 #define DEBUG 1
 #define CORRECT_MASK 1 // move mask to right bottom corner
-#define OFFSET 0 // offset for mask
+#define OFFSET 6 // offset for mask
 
 const float mean_vals[3] = {123.68f, 116.78f, 103.94f};
 const float norm_vals[3] = {1.0 / 58.40f, 1.0 / 57.12f, 1.0 / 57.38f};
