@@ -12,13 +12,13 @@
 #include "tengine_operations.h"
 #include "yolact_uint8.h"
 
-#define TARGET_SIZE 384
+#define TARGET_SIZE 544
 #define DEFAULT_REPEAT_COUNT 1
 #define DEFAULT_THREAD_COUNT 1
 #define VXDEVICE  "TIMVX"
 #define DEBUG 0
 #define CORRECT_MASK 1 // move mask to right bottom corner
-#define OFFSET 6 // offset for mask
+#define OFFSET 5 // offset for mask
 
 const float mean_vals[3] = {123.68f, 116.78f, 103.94f};
 const float norm_vals[3] = {1.0 / 58.40f, 1.0 / 57.12f, 1.0 / 57.38f};
@@ -91,11 +91,12 @@ static std::vector<Box2f> generate_priorbox(int num_priores)
 {
     std::vector<Box2f> priorboxs(num_priores);
 
-    const int conv_ws[5] = {48, 24, 12, 6, 3};
-    const int conv_hs[5] = {48, 24, 12, 6, 3};
+    const int conv_ws[5] = {68, 34, 17, 9, 5};
+    const int conv_hs[5] = {68, 34, 17, 9, 5};
 
     const float aspect_ratios[3] = {1.0f, 0.5f, 2.f};
     const float scales[5] = {24.f, 48.f, 96.f, 192.f, 384.f};
+    //const float scales[5] = {32.f, 64.f, 128.f, 256.f, 512.f};
     int index = 0;
 
     for (int i = 0; i < 5; i++)
@@ -118,6 +119,8 @@ static std::vector<Box2f> generate_priorbox(int num_priores)
 
                     float w = scale * ar / TARGET_SIZE;
                     float h = scale / ar / TARGET_SIZE;
+
+                    // h = w;
 
                     Box2f& priorbox = priorboxs[index];
 
@@ -351,7 +354,7 @@ int detect_yolact_wrapper(const cv::Mat& bgr, std::vector<Object>& objects, grap
     std::vector<float> confidence = class_0_fp32;
     /* postprocess */
     int num_class = 81;
-    int num_priors = 9207;//18525;
+    int num_priors = 18525;
     std::vector<Box2f> priorboxes = generate_priorbox(num_priors);
     const float confidence_thresh = 0.5f;
     const float nms_thresh = 0.3f;
@@ -415,7 +418,7 @@ int detect_yolact_wrapper(const cv::Mat& bgr, std::vector<Object>& objects, grap
     {
         Object& obj = objects[i];
 
-        cv::Mat mask1(96, 96, CV_32FC1);
+        cv::Mat mask1(136, 136, CV_32FC1);
         {
             mask1 = cv::Scalar(0.f);
 
@@ -426,7 +429,7 @@ int detect_yolact_wrapper(const cv::Mat& bgr, std::vector<Object>& objects, grap
                 float* mp = ( float* )mask1.data;
 
                 // mask += m * coeff
-                for (int j = 0; j < 96 * 96; j++)
+                for (int j = 0; j < 136 * 136; j++)
                 {
                     mp[j] += maskmap[j * 32] * coeff;
                 }
@@ -462,7 +465,7 @@ int detect_yolact_wrapper(const cv::Mat& bgr, std::vector<Object>& objects, grap
     return 0;
 }
 
-static void draw_objects(cv::Mat& bgr, const std::vector<Object>& objects)
+static void draw_objects(cv::Mat& bgr, cv::Mat& bgr2, const std::vector<Object>& objects)
 {   
     const char* class_names[] = {"background",
                             "person", "bicycle", "car", "motorcycle", "airplane", "bus",
@@ -565,6 +568,7 @@ static void draw_objects(cv::Mat& bgr, const std::vector<Object>& objects)
     };
 
     cv::Mat &image = bgr;
+    cv::Mat &cropped = bgr2;
 
     int color_index = 0;
 
@@ -581,7 +585,7 @@ static void draw_objects(cv::Mat& bgr, const std::vector<Object>& objects)
         const unsigned char* color = colors[color_index % 81];
         color_index++;
 
-        cv::rectangle(image, obj.rect, cv::Scalar(color[0], color[1], color[2]));
+        // cv::rectangle(image, obj.rect, cv::Scalar(color[0], color[1], color[2]));
 
         char text[256];
         sprintf(text, "%s %.1f%%", class_names[obj.label], obj.prob * 100);
@@ -596,36 +600,39 @@ static void draw_objects(cv::Mat& bgr, const std::vector<Object>& objects)
         if (x + label_size.width > image.cols)
             x = image.cols - label_size.width;
 
-        cv::rectangle(image, cv::Rect(cv::Point(x, y), cv::Size(label_size.width, label_size.height + baseLine)),
-                      cv::Scalar(255, 255, 255), -1);
+        // cv::rectangle(image, cv::Rect(cv::Point(x, y), cv::Size(label_size.width, label_size.height + baseLine)),
+        //               cv::Scalar(255, 255, 255), -1);
 
-        cv::putText(image, text, cv::Point(x, y + label_size.height), cv::FONT_HERSHEY_SIMPLEX, 0.5,
-                    cv::Scalar(0, 0, 0));
+        // cv::putText(image, text, cv::Point(x, y + label_size.height), cv::FONT_HERSHEY_SIMPLEX, 0.5,
+        //             cv::Scalar(0, 0, 0));
 
         // draw mask
         for (int y = 0; y < image.rows; y++)
         {
             const uchar* mp = obj.mask.ptr(y);
-            if (CORRECT_MASK) mp -= OFFSET + image.cols*OFFSET; // move pointer to correct masks
+            if (CORRECT_MASK) mp -= OFFSET - 1 + image.cols*OFFSET; // move pointer to correct masks
             uchar* p = image.ptr(y);
+            uchar* p2 = cropped.ptr(y);
             for (int x = 0; x < image.cols; x++)
             {
                 if (mp[x] == 255)
-                {
-                    p[0] = cv::saturate_cast<uchar>(p[0] * 0.5 + color[0] * 0.5);
-                    p[1] = cv::saturate_cast<uchar>(p[1] * 0.5 + color[1] * 0.5);
-                    p[2] = cv::saturate_cast<uchar>(p[2] * 0.5 + color[2] * 0.5);
+                {   
+                    p2[0] = p[0];
+                    p2[1] = p[1];
+                    p2[2] = p[2];
                 }
-                p += 3;
+                p  += 3;
+                p2 += 3;
             }
         }
     }
 }
 
-int inference( void* ptr, int height, int width, graph_t graph, tensor_t tensor){
+int inference( void* ptr, void* ptr2, int height, int width, graph_t graph, tensor_t tensor){
     // cv::Mat m = cv::imread(image_file, 1);
     cv::Mat img = cv::Mat(height, width, CV_8UC3, (uchar*)ptr);
+    cv::Mat cropped = cv::Mat(height, width, CV_8UC3, (uchar*)ptr2);
     std::vector<Object> objects;
     detect_yolact_wrapper(img, objects, graph, tensor);
-    draw_objects(img, objects);
+    draw_objects(img, cropped, objects);
 }
