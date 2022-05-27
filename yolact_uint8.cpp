@@ -12,13 +12,13 @@
 #include "tengine_operations.h"
 #include "yolact_uint8.h"
 
-#define TARGET_SIZE 544
+#define TARGET_SIZE 384
 #define DEFAULT_REPEAT_COUNT 1
 #define DEFAULT_THREAD_COUNT 1
 #define VXDEVICE  "TIMVX"
-#define DEBUG 0
+#define DEBUG 1
 #define CORRECT_MASK 1 // move mask to right bottom corner
-#define OFFSET 6 // offset for mask
+#define OFFSET 0 // offset for mask
 
 const float mean_vals[3] = {123.68f, 116.78f, 103.94f};
 const float norm_vals[3] = {1.0 / 58.40f, 1.0 / 57.12f, 1.0 / 57.38f};
@@ -91,12 +91,11 @@ static std::vector<Box2f> generate_priorbox(int num_priores)
 {
     std::vector<Box2f> priorboxs(num_priores);
 
-    const int conv_ws[5] = {68, 34, 17, 9, 5};
-    const int conv_hs[5] = {68, 34, 17, 9, 5};
+    const int conv_ws[5] = {48, 24, 12, 6, 3};
+    const int conv_hs[5] = {48, 24, 12, 6, 3};
 
     const float aspect_ratios[3] = {1.0f, 0.5f, 2.f};
     const float scales[5] = {24.f, 48.f, 96.f, 192.f, 384.f};
-    //const float scales[5] = {32.f, 64.f, 128.f, 256.f, 512.f};
     int index = 0;
 
     for (int i = 0; i < 5; i++)
@@ -119,8 +118,6 @@ static std::vector<Box2f> generate_priorbox(int num_priores)
 
                     float w = scale * ar / TARGET_SIZE;
                     float h = scale / ar / TARGET_SIZE;
-
-                    // h = w;
 
                     Box2f& priorbox = priorboxs[index];
 
@@ -354,7 +351,7 @@ int detect_yolact_wrapper(const cv::Mat& bgr, std::vector<Object>& objects, grap
     std::vector<float> confidence = class_0_fp32;
     /* postprocess */
     int num_class = 81;
-    int num_priors = 18525;
+    int num_priors = 9207;//18525;
     std::vector<Box2f> priorboxes = generate_priorbox(num_priors);
     const float confidence_thresh = 0.5f;
     const float nms_thresh = 0.3f;
@@ -418,7 +415,7 @@ int detect_yolact_wrapper(const cv::Mat& bgr, std::vector<Object>& objects, grap
     {
         Object& obj = objects[i];
 
-        cv::Mat mask1(136, 136, CV_32FC1);
+        cv::Mat mask1(96, 96, CV_32FC1);
         {
             mask1 = cv::Scalar(0.f);
 
@@ -429,7 +426,7 @@ int detect_yolact_wrapper(const cv::Mat& bgr, std::vector<Object>& objects, grap
                 float* mp = ( float* )mask1.data;
 
                 // mask += m * coeff
-                for (int j = 0; j < 136 * 136; j++)
+                for (int j = 0; j < 96 * 96; j++)
                 {
                     mp[j] += maskmap[j * 32] * coeff;
                 }
