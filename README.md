@@ -1,4 +1,5 @@
 # khadas_python_yolact
+This repository contains feature that shows only masked objects on the screen.
 ## Getting started
 Build library for yolact
 ```
@@ -10,16 +11,11 @@ Download [model](https://drive.google.com/file/d/11depzZYc2pchDJYWFhc7yR4uaHUUSl
 python3 yolact.py
 ```
 ## Demo
-This results is from [c_version](https://github.com/SashaAlderson/khadas_python_yolact/tree/c_version), to get them modify python example or run 
+To run demo use
 ```
-git clone -b c_version https://github.com/SashaAlderson/khadas_python_yolact
-cd khadas_python_yolact
-chmod u+x build-cv4.sh
-chmod u+x run.sh
-./run.sh
+python3 demo.py
 ```
-
-![yolact_out](https://user-images.githubusercontent.com/84590713/170486754-21fb2593-5328-4ad4-bd35-eeef432ba1b6.jpg)
+![cropped_image](https://user-images.githubusercontent.com/84590713/170768312-c8cbaca9-4b84-41ba-8730-9248e7a1365f.jpg)
 
 ## TODO
 Maybe someday i'll increase FPS and use 2 models in parallel.
