@@ -18,7 +18,7 @@
 #define VXDEVICE  "TIMVX"
 #define DEBUG 0
 #define CORRECT_MASK 1 // move mask to right bottom corner
-#define OFFSET 6 // offset for mask
+#define OFFSET 5       // offset for mask
 
 const float mean_vals[3] = {123.68f, 116.78f, 103.94f};
 const float norm_vals[3] = {1.0 / 58.40f, 1.0 / 57.12f, 1.0 / 57.38f};
@@ -465,7 +465,7 @@ int detect_yolact_wrapper(const cv::Mat& bgr, std::vector<Object>& objects, grap
     return 0;
 }
 
-static void draw_objects(cv::Mat& bgr, cv::Mat& bgr2, const std::vector<Object>& objects)
+static void draw_objects(cv::Mat& image, cv::Mat& cropped, const std::vector<Object>& objects)
 {   
     const char* class_names[] = {"background",
                             "person", "bicycle", "car", "motorcycle", "airplane", "bus",
@@ -567,8 +567,8 @@ static void draw_objects(cv::Mat& bgr, cv::Mat& bgr2, const std::vector<Object>&
         {245, 255, 0}
     };
 
-    cv::Mat &image = bgr;
-    cv::Mat &cropped = bgr2;
+    // cv::Mat &image = bgr;
+    // cv::Mat &cropped = bgr2;
 
     int color_index = 0;
 

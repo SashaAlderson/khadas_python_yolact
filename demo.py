@@ -26,9 +26,11 @@ class Yolact(threading.Thread):
         self.frame = cv2.imread("yolact.jpg")        
         height, width, c = self.frame.shape
         self.cropped = np.zeros([height, width, c], dtype = np.uint8)
-        libc.inference(self.frame.ctypes.data , self.cropped.ctypes.data, height, width, self.graph, self.input_tensor)          
+        libc.inference(self.frame.ctypes.data , self.cropped.ctypes.data, height, width, self.graph, self.input_tensor)    
+        print("Press any key")      
         cv2.imwrite("cropped_image.jpg", self.cropped)
-        print("Fps: ", 1/(time.time() - start))
+        cv2.imshow("cropped frame", self.cropped)
+        cv2.waitKey(0)
 
 if __name__ == "__main__":
     model = Yolact("yolact_50_KL_uint8.tmfile")
